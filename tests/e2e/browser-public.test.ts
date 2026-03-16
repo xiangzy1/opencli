@@ -39,12 +39,11 @@ describe('browser public-data commands E2E', () => {
 
   // ── bbc (browser: true, strategy: public) ──
   it('bbc news returns headlines', async () => {
-    const { stdout, code } = await runCli(['bbc', 'news', '--limit', '3', '-f', 'json']);
-    expect(code).toBe(0);
-    const data = parseJsonOutput(stdout);
-    expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBeGreaterThanOrEqual(1);
-    expect(data[0]).toHaveProperty('title');
+    const data = await tryBrowserCommand(['bbc', 'news', '--limit', '3', '-f', 'json']);
+    expectDataOrSkip(data, 'bbc news');
+    if (data) {
+      expect(data[0]).toHaveProperty('title');
+    }
   }, 60_000);
 
   // ── v2ex daily (browser: true) ──

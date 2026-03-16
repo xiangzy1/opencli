@@ -59,12 +59,12 @@ describe('API health smoke tests', () => {
     expect(code).toBe(0);
     const data = parseJsonOutput(stdout);
     const sites = new Set(data.map((d: any) => d.site));
-    // Verify all 18 sites are present
+    // Verify all 17 sites are present
     for (const expected of [
       'hackernews', 'bbc', 'bilibili', 'v2ex', 'weibo', 'zhihu',
       'twitter', 'reddit', 'xueqiu', 'reuters', 'youtube',
       'smzdm', 'boss', 'ctrip', 'coupang', 'xiaohongshu',
-      'yahoo-finance', 'xueqiu',
+      'yahoo-finance',
     ]) {
       expect(sites.has(expected)).toBe(true);
     }

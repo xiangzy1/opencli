@@ -49,9 +49,9 @@ describe('browser helpers', () => {
     expect(__test__.appendLimited('12345', '67890', 8)).toBe('34567890');
   });
 
-  it('builds extension MCP args when token is set', () => {
-    const savedToken = process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN;
-    process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN = 'test-token';
+  it('builds extension MCP args in local mode (no CI)', () => {
+    const savedCI = process.env.CI;
+    delete process.env.CI;
     try {
       expect(__test__.buildMcpArgs({
         mcpPath: '/tmp/cli.js',
@@ -70,19 +70,19 @@ describe('browser helpers', () => {
         '--extension',
       ]);
     } finally {
-      if (savedToken) {
-        process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN = savedToken;
+      if (savedCI !== undefined) {
+        process.env.CI = savedCI;
       } else {
-        delete process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN;
+        delete process.env.CI;
       }
     }
   });
 
-  it('builds standalone MCP args when no extension token is set', () => {
-    const savedToken = process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN;
-    delete process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN;
+  it('builds standalone MCP args in CI mode', () => {
+    const savedCI = process.env.CI;
+    process.env.CI = 'true';
     try {
-      // Without token: no --extension, no --headless — browser launches in headed mode
+      // CI mode: no --extension — browser launches in standalone headed mode
       expect(__test__.buildMcpArgs({
         mcpPath: '/tmp/cli.js',
       })).toEqual([
@@ -98,7 +98,11 @@ describe('browser helpers', () => {
         '/usr/bin/chromium',
       ]);
     } finally {
-      if (savedToken) process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN = savedToken;
+      if (savedCI !== undefined) {
+        process.env.CI = savedCI;
+      } else {
+        delete process.env.CI;
+      }
     }
   });
 

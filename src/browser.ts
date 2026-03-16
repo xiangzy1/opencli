@@ -612,14 +612,13 @@ function appendLimited(current: string, chunk: string, limit: number): string {
 }
 
 function buildMcpArgs(input: { mcpPath: string; executablePath?: string | null }): string[] {
-  const hasToken = !!process.env.PLAYWRIGHT_MCP_EXTENSION_TOKEN;
   const args = [input.mcpPath];
-  if (hasToken) {
-    // Connect to user's running Chrome via MCP Bridge extension
+  if (!process.env.CI) {
+    // Local: always connect to user's running Chrome via MCP Bridge extension
     args.push('--extension');
   }
-  // Without --extension, @playwright/mcp launches its own browser (headed by default).
-  // In CI, xvfb provides a virtual display for headed mode.
+  // CI: standalone mode — @playwright/mcp launches its own browser (headed by default).
+  // xvfb provides a virtual display for headed mode in GitHub Actions.
   if (input.executablePath) {
     args.push('--executable-path', input.executablePath);
   }
