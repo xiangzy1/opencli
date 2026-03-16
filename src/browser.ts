@@ -442,12 +442,12 @@ export class PlaywrightMCP {
         }));
       }, timeout * 1000);
 
-      const mcpArgs: string[] = [mcpPath, '--extension'];
+      const mcpArgs = buildMcpArgs({
+        mcpPath,
+        executablePath: process.env.OPENCLI_BROWSER_EXECUTABLE_PATH,
+      });
       if (process.env.OPENCLI_VERBOSE) {
         console.error(`[opencli] Extension token: ${extensionToken ? `configured (fingerprint ${tokenFingerprint})` : 'missing'}`);
-      }
-      if (process.env.OPENCLI_BROWSER_EXECUTABLE_PATH) {
-        mcpArgs.push('--executablePath', process.env.OPENCLI_BROWSER_EXECUTABLE_PATH);
       }
       debugLog(`Spawning node ${mcpArgs.join(' ')}`);
 
@@ -664,6 +664,14 @@ function appendLimited(current: string, chunk: string, limit: number): string {
   return next.slice(-limit);
 }
 
+function buildMcpArgs(input: { mcpPath: string; executablePath?: string | null }): string[] {
+  const args = [input.mcpPath, '--extension'];
+  if (input.executablePath) {
+    args.push('--executable-path', input.executablePath);
+  }
+  return args;
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -685,6 +693,7 @@ export const __test__ = {
   extractTabEntries,
   diffTabIndexes,
   appendLimited,
+  buildMcpArgs,
   withTimeout,
 };
 
