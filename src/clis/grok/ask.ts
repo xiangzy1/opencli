@@ -59,21 +59,15 @@ async function runDefaultAsk(
   timeoutMs: number,
   newChat: boolean,
 ) {
+  await page.goto(GROK_URL);
+  await page.wait(2);
+
   if (newChat) {
-    await page.goto(GROK_URL);
-    await page.wait(2);
-    await page.evaluate(`(() => {
-      const btn = [...document.querySelectorAll('a, button')].find(b => {
-        const t = (b.textContent || '').trim().toLowerCase();
-        return t.includes('new') || b.getAttribute('href') === '/';
-      });
-      if (btn) btn.click();
-    })()`);
+    await tryStartFreshChat(page);
     await page.wait(2);
   }
 
-  await page.goto(GROK_URL);
-  await page.wait(3);
+  const baselineBubbles = await getBubbleTexts(page);
 
   const promptJson = JSON.stringify(prompt);
   const sendResult = await page.evaluate(`(async () => {
@@ -103,28 +97,19 @@ async function runDefaultAsk(
 
   while (Date.now() - startTime < timeoutMs) {
     await page.wait(3);
-    const response = await page.evaluate(`(() => {
-      const bubbles = document.querySelectorAll('div.message-bubble, [data-testid="message-bubble"]');
-      if (bubbles.length < 2) return '';
-      const last = bubbles[bubbles.length - 1];
-      const text = (last.innerText || '').trim();
-      if (!text || text.length < 2) return '';
-      return text;
-    })()`);
+    const bubbleTexts = await getBubbleTexts(page);
+    const candidate = pickLatestAssistantCandidate(bubbleTexts, baselineBubbles.length, prompt);
+    const nextState = updateStableState(lastText, stableCount, candidate);
+    lastText = nextState.previousText;
+    stableCount = nextState.stableCount;
 
-    if (response && response.length > 2) {
-      if (response === lastText) {
-        stableCount++;
-        if (stableCount >= 2) return [{ response }];
-      } else {
-        stableCount = 0;
-      }
+    if (candidate && stableCount >= 2) {
+      return [{ response: candidate }];
     }
-    lastText = response || '';
   }
 
   if (lastText) return [{ response: lastText }];
-  return [{ response: NO_RESPONSE_PREFIX }];
+  return [{ response: `${NO_RESPONSE_PREFIX} No new assistant message appeared within ${Math.round(timeoutMs / 1000)}s.` }];
 }
 
 async function getBubbleTexts(page: IPage): Promise<string[]> {
@@ -220,7 +205,7 @@ async function sendPromptViaExplicitWeb(page: IPage, prompt: string) {
 
     let submit = null;
     for (let attempt = 0; attempt < 6; attempt += 1) {
-      const candidate = Array.from(document.querySelectorAll('button[aria-label="Submit"]'))
+      const candidate = Array.from(document.querySelectorAll('button[aria-label="Submit"], button[aria-label="\u63d0\u4ea4"]'))
         .find(isVisibleEnabledSubmit);
 
       if (candidate instanceof HTMLButtonElement) {
