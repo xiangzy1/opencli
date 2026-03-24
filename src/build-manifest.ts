@@ -46,29 +46,7 @@ export interface ManifestEntry {
   navigateBefore?: boolean | string;
 }
 
-interface YamlArgDefinition {
-  type?: string;
-  default?: unknown;
-  required?: boolean;
-  positional?: boolean;
-  description?: string;
-  help?: string;
-  choices?: string[];
-}
-
-interface YamlCliDefinition {
-  site?: string;
-  name?: string;
-  description?: string;
-  domain?: string;
-  strategy?: string;
-  browser?: boolean;
-  args?: Record<string, YamlArgDefinition>;
-  columns?: string[];
-  pipeline?: Record<string, unknown>[];
-  timeout?: number;
-  navigateBefore?: boolean | string;
-}
+import type { YamlCliDefinition } from './yaml-schema.js';
 
 import { isRecord } from './utils.js';
 

@@ -2,6 +2,9 @@
  * Shared utility functions used across the codebase.
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 /** Type guard: checks if a value is a non-null, non-array object. */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,8 +33,6 @@ export async function mapConcurrent<T, R>(
 
 /** Save a base64-encoded string to a file, creating parent directories as needed. */
 export async function saveBase64ToFile(base64: string, filePath: string): Promise<void> {
-  const fs = await import('node:fs');
-  const path = await import('node:path');
   const dir = path.dirname(filePath);
   await fs.promises.mkdir(dir, { recursive: true });
   await fs.promises.writeFile(filePath, Buffer.from(base64, 'base64'));

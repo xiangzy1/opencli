@@ -22,29 +22,7 @@ import type { ManifestEntry } from './build-manifest.js';
 export const PLUGINS_DIR = path.join(os.homedir(), '.opencli', 'plugins');
 const CLI_MODULE_PATTERN = /\bcli\s*\(/;
 
-interface YamlArgDefinition {
-  type?: string;
-  default?: unknown;
-  required?: boolean;
-  positional?: boolean;
-  description?: string;
-  help?: string;
-  choices?: string[];
-}
-
-interface YamlCliDefinition {
-  site?: string;
-  name?: string;
-  description?: string;
-  domain?: string;
-  strategy?: string;
-  browser?: boolean;
-  args?: Record<string, YamlArgDefinition>;
-  columns?: string[];
-  pipeline?: Record<string, unknown>[];
-  timeout?: number;
-  navigateBefore?: boolean | string;
-}
+import type { YamlCliDefinition } from './yaml-schema.js';
 
 function parseStrategy(rawStrategy: string | undefined, fallback: Strategy = Strategy.COOKIE): Strategy {
   if (!rawStrategy) return fallback;
@@ -136,7 +114,6 @@ async function loadFromManifest(manifestPath: string, clisDir: string): Promise<
  */
 async function discoverClisFromFs(dir: string): Promise<void> {
   try { await fs.promises.access(dir); } catch { return; }
-  const promises: Promise<unknown>[] = [];
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
   
   const sitePromises = entries

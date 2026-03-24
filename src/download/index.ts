@@ -11,6 +11,9 @@ import * as os from 'node:os';
 import { URL } from 'node:url';
 import type { ProgressBar } from './progress.js';
 import { isBinaryInstalled } from '../external.js';
+import type { BrowserCookie } from '../types.js';
+
+export type { BrowserCookie } from '../types.js';
 
 export interface DownloadOptions {
   cookies?: string;
@@ -28,24 +31,9 @@ export interface YtdlpOptions {
   onProgress?: (percent: number) => void;
 }
 
-export interface BrowserCookie {
-  name: string;
-  value: string;
-  domain: string;
-  path?: string;
-  secure?: boolean;
-  httpOnly?: boolean;
-  expirationDate?: number;
-}
-
 /** Check if yt-dlp is available in PATH. */
 export function checkYtdlp(): boolean {
   return isBinaryInstalled('yt-dlp');
-}
-
-/** Check if ffmpeg is available in PATH. */
-export function checkFfmpeg(): boolean {
-  return isBinaryInstalled('ffmpeg');
 }
 
 /** Domains that host video content and can be downloaded via yt-dlp. */

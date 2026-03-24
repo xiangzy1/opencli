@@ -117,6 +117,3 @@ export class BrowserBridge {
     );
   }
 }
-
-/** @deprecated Use BrowserBridge instead */
-export const PlaywrightMCP = BrowserBridge;
