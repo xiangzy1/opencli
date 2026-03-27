@@ -491,10 +491,27 @@ export function readLockFile(): Record<string, LockEntry> {
   return readLockFileWithWriter(writeLockFile);
 }
 
-export function writeLockFile(lock: Record<string, LockEntry>): void {
+type WriteLockFileFsOps = Pick<typeof fs, 'mkdirSync' | 'writeFileSync' | 'renameSync' | 'rmSync'>;
+
+function writeLockFileWithFs(
+  lock: Record<string, LockEntry>,
+  fsOps: WriteLockFileFsOps = fs,
+): void {
   const lockPath = getLockFilePath();
-  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
-  fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
+  fsOps.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const tempPath = createSiblingTempPath(lockPath, 'tmp');
+
+  try {
+    fsOps.writeFileSync(tempPath, JSON.stringify(lock, null, 2) + '\n');
+    fsOps.renameSync(tempPath, lockPath);
+  } catch (err) {
+    try { fsOps.rmSync(tempPath, { force: true }); } catch {}
+    throw err;
+  }
+}
+
+export function writeLockFile(lock: Record<string, LockEntry>): void {
+  writeLockFileWithFs(lock, fs);
 }
 
 /** Get the HEAD commit hash of a git repo directory. */
@@ -1505,6 +1522,7 @@ export {
   updateAllPlugins as _updateAllPlugins,
   validatePluginStructure as _validatePluginStructure,
   writeLockFile as _writeLockFile,
+  writeLockFileWithFs as _writeLockFileWithFs,
   isSymlinkSync as _isSymlinkSync,
   getMonoreposDir as _getMonoreposDir,
   installLocalPlugin as _installLocalPlugin,

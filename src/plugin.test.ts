@@ -33,6 +33,7 @@ const {
   _updateAllPlugins,
   _validatePluginStructure,
   _writeLockFile,
+  _writeLockFileWithFs,
   _isSymlinkSync,
   _getMonoreposDir,
   getLockFilePath,
@@ -282,6 +283,38 @@ describe('lock file', () => {
     fs.mkdirSync(path.dirname(getLockFilePath()), { recursive: true });
     fs.writeFileSync(getLockFilePath(), 'not valid json');
     expect(_readLockFile()).toEqual({});
+  });
+
+  it('keeps the previous lockfile contents when atomic rewrite fails', () => {
+    const existing: Record<string, LockEntry> = {
+      stable: {
+        source: { kind: 'git', url: 'https://github.com/user/stable.git' },
+        commitHash: 'stable1234567890',
+        installedAt: '2025-01-01T00:00:00.000Z',
+      },
+    };
+    _writeLockFile(existing);
+
+    const renameSync = vi.fn(() => {
+      throw new Error('rename failed');
+    });
+    const rmSync = vi.fn(() => undefined);
+
+    expect(() => _writeLockFileWithFs({
+      broken: {
+        source: { kind: 'git', url: 'https://github.com/user/broken.git' },
+        commitHash: 'broken1234567890',
+        installedAt: '2025-02-01T00:00:00.000Z',
+      },
+    }, {
+      mkdirSync: fs.mkdirSync,
+      writeFileSync: fs.writeFileSync,
+      renameSync,
+      rmSync,
+    })).toThrow('rename failed');
+
+    expect(_readLockFile()).toEqual(existing);
+    expect(rmSync).toHaveBeenCalledTimes(1);
   });
 
   it('migrates legacy string sources to structured sources on read', () => {
