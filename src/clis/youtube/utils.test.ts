@@ -1,24 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildQuietPlaybackJs, quietWatchPlayback } from './utils.js';
+import { prepareYoutubeApiPage } from './utils.js';
 
 describe('youtube utils', () => {
-  it('buildQuietPlaybackJs mutes and pauses both player and media element', () => {
-    const js = buildQuietPlaybackJs();
-    expect(js).toContain('Date.now() + 5000');
-    expect(js).toContain('await wait(100)');
-    expect(js).toContain('player?.mute');
-    expect(js).toContain('player?.pauseVideo');
-    expect(js).toContain("document.querySelector('video')");
-    expect(js).toContain('media.muted = true');
-    expect(js).toContain('media.pause()');
-  });
-
-  it('quietWatchPlayback ignores evaluation failures', async () => {
+  it('prepareYoutubeApiPage loads the quiet API bootstrap page', async () => {
     const page = {
-      evaluate: vi.fn().mockRejectedValue(new Error('boom')),
+      goto: vi.fn().mockResolvedValue(undefined),
+      wait: vi.fn().mockResolvedValue(undefined),
     };
 
-    await expect(quietWatchPlayback(page as any)).resolves.toBeUndefined();
-    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    await expect(prepareYoutubeApiPage(page as any)).resolves.toBeUndefined();
+    expect(page.goto).toHaveBeenCalledWith('https://www.youtube.com', { waitUntil: 'none' });
+    expect(page.wait).toHaveBeenCalledWith(2);
   });
 });
