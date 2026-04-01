@@ -224,10 +224,6 @@ describe('background tab isolation', () => {
     tabs[0].url = 'https://notebooklm.google.com/';
     tabs[0].title = 'NotebookLM Home';
     tabs[0].active = true;
-    tabs[1].url = 'https://notebooklm.google.com/notebook/nb-passive';
-    tabs[1].title = 'Notebook';
-    tabs[1].active = false;
-    vi.stubGlobal('chrome', chrome);
 
     vi.useFakeTimers();
     vi.stubGlobal('chrome', chrome);
