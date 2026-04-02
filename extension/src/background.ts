@@ -181,8 +181,27 @@ async function getAutomationWindow(workspace: string, initialUrl?: string): Prom
   automationSessions.set(workspace, session);
   console.log(`[opencli] Created automation window ${session.windowId} (${workspace}, start=${startUrl})`);
   resetWindowIdleTimer(workspace);
-  // Brief delay to let Chrome load the initial tab
-  await new Promise(resolve => setTimeout(resolve, 200));
+  // Wait for the initial tab to finish loading instead of a fixed 200ms sleep.
+  const tabs = await chrome.tabs.query({ windowId: win.id! });
+  if (tabs[0]?.id) {
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, 500); // fallback cap
+      const listener = (tabId: number, info: chrome.tabs.TabChangeInfo) => {
+        if (tabId === tabs[0].id && info.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(listener);
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+      // Check if already complete before listening
+      if (tabs[0].status === 'complete') {
+        clearTimeout(timeout);
+        resolve();
+      } else {
+        chrome.tabs.onUpdated.addListener(listener);
+      }
+    });
+  }
   return session.windowId;
 }
 

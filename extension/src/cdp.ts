@@ -121,11 +121,14 @@ export async function evaluate(tabId: number, expression: string, aggressiveRetr
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       // Only retry on attach/debugger errors, not on JS eval errors
-      const isAttachError = msg.includes('attach failed') || msg.includes('Debugger is not attached')
-        || msg.includes('chrome-extension://') || msg.includes('Target closed');
+      const isNavigateError = msg.includes('Inspected target navigated') || msg.includes('Target closed');
+      const isAttachError = isNavigateError || msg.includes('attach failed') || msg.includes('Debugger is not attached')
+        || msg.includes('chrome-extension://');
       if (isAttachError && attempt < MAX_EVAL_RETRIES) {
         attached.delete(tabId); // Force re-attach on next attempt
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // SPA navigations recover quickly; debugger detach needs longer
+        const retryMs = isNavigateError ? 200 : 500;
+        await new Promise(resolve => setTimeout(resolve, retryMs));
         continue;
       }
       throw e;

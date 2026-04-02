@@ -58,25 +58,17 @@ export class Page extends BasePage {
       this._tabId = result.tabId;
     }
     this._lastUrl = url;
-    // Inject stealth anti-detection patches (guard flag prevents double-injection).
-    try {
-      await sendCommand('exec', {
-        code: generateStealthJs(),
-        ...this._cmdOpts(),
-      });
-    } catch {
-      // Non-fatal: stealth is best-effort
-    }
-    // Smart settle: use DOM stability detection instead of fixed sleep.
-    // settleMs is now a timeout cap (default 1000ms), not a fixed wait.
+    // Inject stealth + settle in a single round-trip instead of two sequential exec calls.
+    // The stealth guard flag prevents double-injection; settle uses DOM stability detection.
     if (options?.waitUntil !== 'none') {
       const maxMs = options?.settleMs ?? 1000;
-      const settleOpts = {
-        code: waitForDomStableJs(maxMs, Math.min(500, maxMs)),
+      const combinedCode = `${generateStealthJs()};\n${waitForDomStableJs(maxMs, Math.min(500, maxMs))}`;
+      const combinedOpts = {
+        code: combinedCode,
         ...this._cmdOpts(),
       };
       try {
-        await sendCommand('exec', settleOpts);
+        await sendCommand('exec', combinedOpts);
       } catch (err) {
         if (!isRetryableSettleError(err)) throw err;
         // SPA client-side redirects can invalidate the CDP target after
@@ -84,13 +76,20 @@ export class Page extends BasePage {
         // to load, then retry the settle probe once.
         try {
           await new Promise((r) => setTimeout(r, 200));
-          await sendCommand('exec', settleOpts);
+          await sendCommand('exec', combinedOpts);
         } catch (retryErr) {
           if (!isRetryableSettleError(retryErr)) throw retryErr;
-          // Retry also failed — give up silently. Settle is best-effort
-          // after successful navigation; the next real command will surface
-          // any persistent target error immediately.
         }
+      }
+    } else {
+      // Even with waitUntil='none', still inject stealth (best-effort)
+      try {
+        await sendCommand('exec', {
+          code: generateStealthJs(),
+          ...this._cmdOpts(),
+        });
+      } catch {
+        // Non-fatal: stealth is best-effort
       }
     }
   }
