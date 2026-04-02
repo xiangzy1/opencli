@@ -223,14 +223,6 @@ class CDPPage extends BasePage {
     return [];
   }
 
-  async closeTab(_index?: number): Promise<void> {
-    // Not supported in direct CDP mode
-  }
-
-  async newTab(): Promise<void> {
-    await this.bridge.send('Target.createTarget', { url: 'about:blank' });
-  }
-
   async selectTab(_index: number): Promise<void> {
     // Not supported in direct CDP mode
   }

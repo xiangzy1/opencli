@@ -56,8 +56,6 @@ export interface IPage {
   getFormState(): Promise<any>;
   wait(options: number | WaitOptions): Promise<void>;
   tabs(): Promise<any>;
-  closeTab(index?: number): Promise<void>;
-  newTab(): Promise<void>;
   selectTab(index: number): Promise<void>;
   networkRequests(includeStatic?: boolean): Promise<any>;
   consoleMessages(level?: string): Promise<any>;

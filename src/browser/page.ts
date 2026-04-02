@@ -129,18 +129,6 @@ export class Page extends BasePage {
     return Array.isArray(result) ? result : [];
   }
 
-  async closeTab(index?: number): Promise<void> {
-    await sendCommand('tabs', { op: 'close', ...this._wsOpt(), ...(index !== undefined ? { index } : {}) });
-    // Invalidate cached tabId — the closed tab might have been our active one.
-    // We can't know for sure (close-by-index doesn't return tabId), so reset.
-    this._tabId = undefined;
-  }
-
-  async newTab(): Promise<void> {
-    const result = await sendCommand('tabs', { op: 'new', ...this._wsOpt() }) as { tabId?: number };
-    if (result?.tabId) this._tabId = result.tabId;
-  }
-
   async selectTab(index: number): Promise<void> {
     const result = await sendCommand('tabs', { op: 'select', index, ...this._wsOpt() }) as { selected?: number };
     if (result?.selected) this._tabId = result.selected;
