@@ -200,10 +200,13 @@ export class Page extends BasePage {
 
   /** Precise click using DOM.getContentQuads/getBoxModel for inline elements */
   async clickWithQuads(ref: string): Promise<void> {
+    const safeRef = JSON.stringify(ref);
+    const cssSelector = `[data-opencli-ref="${ref.replace(/"/g, '\\"')}"]`;
+
     // Scroll element into view first
     await this.evaluate(`
       (() => {
-        const el = document.querySelector('[data-opencli-ref="${ref}"]');
+        const el = document.querySelector('[data-opencli-ref="' + ${safeRef} + '"]');
         if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
         return !!el;
       })()
@@ -214,7 +217,7 @@ export class Page extends BasePage {
       const doc = await this.cdp('DOM.getDocument', {}) as { root: { nodeId: number } };
       const result = await this.cdp('DOM.querySelectorAll', {
         nodeId: doc.root.nodeId,
-        selector: `[data-opencli-ref="${ref}"]`,
+        selector: cssSelector,
       }) as { nodeIds: number[] };
 
       if (!result.nodeIds?.length) throw new Error('DOM node not found');
@@ -249,8 +252,8 @@ export class Page extends BasePage {
     // Final fallback: regular click
     await this.evaluate(`
       (() => {
-        const el = document.querySelector('[data-opencli-ref="${ref}"]');
-        if (!el) throw new Error('Element not found: ' + ${JSON.stringify(ref)});
+        const el = document.querySelector('[data-opencli-ref="' + ${safeRef} + '"]');
+        if (!el) throw new Error('Element not found: ' + ${safeRef});
         el.click();
         return 'clicked';
       })()

@@ -65,12 +65,11 @@ export function typeTextJs(ref: string, text: string): string {
         document.execCommand('insertText', false, ${safeText});
         el.dispatchEvent(new Event('input', { bubbles: true }));
       } else {
-        // Use native setter for React/framework compatibility
-        const nativeSetter = Object.getOwnPropertyDescriptor(
-          window.HTMLInputElement.prototype, 'value'
-        )?.set || Object.getOwnPropertyDescriptor(
-          window.HTMLTextAreaElement.prototype, 'value'
-        )?.set;
+        // Use native setter for React/framework compatibility (match element type)
+        const proto = el instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+        const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
         if (nativeSetter) {
           nativeSetter.call(el, ${safeText});
         } else {

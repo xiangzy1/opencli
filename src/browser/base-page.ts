@@ -59,7 +59,7 @@ export abstract class BasePage implements IPage {
       if (success) return;
     }
 
-    if (result.error) throw new Error(`Click failed: ${result.error}`);
+    throw new Error(`Click failed: ${result.error ?? 'JS click and CDP fallback both failed'}`);
   }
 
   /** Override in subclasses with CDP native click support */
