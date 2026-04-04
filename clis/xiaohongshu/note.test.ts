@@ -57,8 +57,8 @@ describe('buildNoteUrl', () => {
     expect(buildNoteUrl(url)).toBe(url);
   });
 
-  it('constructs /explore/ URL for bare note ID', () => {
-    expect(buildNoteUrl('abc123')).toBe('https://www.xiaohongshu.com/explore/abc123');
+  it('constructs /search_result/ URL for bare note ID', () => {
+    expect(buildNoteUrl('abc123')).toBe('https://www.xiaohongshu.com/search_result/abc123');
   });
 });
 
@@ -85,7 +85,7 @@ describe('xiaohongshu note', () => {
 
     const result = (await command!.func!(page, { 'note-id': '69c131c9000000002800be4c' })) as any[];
 
-    expect((page.goto as any).mock.calls[0][0]).toContain('/explore/69c131c9000000002800be4c');
+    expect((page.goto as any).mock.calls[0][0]).toContain('/search_result/69c131c9000000002800be4c');
     expect(result).toEqual([
       { field: 'title', value: '尚界Z7实车体验' },
       { field: 'author', value: '小红薯用户' },
@@ -154,7 +154,7 @@ describe('xiaohongshu note', () => {
     } catch (error) {
       expect(error).toMatchObject({
         code: 'EMPTY_RESULT',
-        hint: expect.stringMatching(/xsec_token|full url|search_result/i),
+        hint: expect.stringContaining('loaded without visible content'),
       });
     }
   });
