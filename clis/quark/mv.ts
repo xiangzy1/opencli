@@ -1,4 +1,4 @@
-import { ArgumentError } from '@jackwener/opencli/errors';
+import { ArgumentError, CommandExecutionError } from '@jackwener/opencli/errors';
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import type { IPage } from '@jackwener/opencli/types';
 import { DRIVE_API, apiPost, findFolder, pollTask } from './utils.js';
@@ -31,6 +31,7 @@ cli({
     const fidList = [...new Set(fids.split(',').map(id => id.trim()).filter(Boolean))];
     if (fidList.length === 0) throw new ArgumentError('No fids provided');
     if (!to && !toFid) throw new ArgumentError('Either --to or --to-fid is required');
+    if (to && toFid) throw new ArgumentError('Cannot use both --to and --to-fid');
 
     const targetFid = toFid || await findFolder(page, to);
     const data = await apiPost<{ task_id: string }>(page, `${DRIVE_API}/move?pr=ucpro&fr=pc`, {
@@ -39,7 +40,7 @@ cli({
     });
 
     const result: MoveResult = {
-      status: 'ok',
+      status: 'pending',
       count: fidList.length,
       destination: to || toFid,
       task_id: data.task_id,
@@ -47,7 +48,13 @@ cli({
     };
 
     if (data.task_id) {
-      result.completed = await pollTask(page, data.task_id);
+      const completed = await pollTask(page, data.task_id);
+      result.completed = completed;
+      result.status = completed ? 'ok' : 'error';
+      if (!completed) throw new CommandExecutionError('quark: Move task timed out');
+    } else {
+      result.status = 'ok';
+      result.completed = true;
     }
 
     return result;

@@ -78,13 +78,13 @@ cli({
   strategy: Strategy.COOKIE,
   args: [
     { name: 'path', positional: true, default: '', help: 'Folder path to list (empty for root)' },
-    { name: 'depth', type: 'int', default: 1, help: 'Max depth to traverse' },
+    { name: 'depth', type: 'int', default: 0, help: 'Max depth to traverse' },
     { name: 'dirs-only', type: 'boolean', default: false, help: 'Show directories only' },
   ],
   columns: ['name', 'is_dir', 'size', 'fid', 'path'],
   func: async (page, kwargs) => {
     const path = (kwargs.path as string) ?? '';
-    const depth = Math.max(1, (kwargs.depth as number) ?? 1);
+    const depth = Math.max(0, (kwargs.depth as number) ?? 0);
     const dirsOnly = (kwargs['dirs-only'] as boolean) ?? false;
 
     const rootFid = path ? await findFolder(page, path) : '0';

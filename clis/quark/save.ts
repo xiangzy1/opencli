@@ -1,4 +1,4 @@
-import { ArgumentError } from '@jackwener/opencli/errors';
+import { ArgumentError, CommandExecutionError } from '@jackwener/opencli/errors';
 import { cli, Strategy } from '@jackwener/opencli/registry';
 import type { IPage } from '@jackwener/opencli/types';
 import {
@@ -69,6 +69,7 @@ cli({
     const passcode = kwargs.passcode as string;
 
     if (!to && !toFid) throw new ArgumentError('Either --to or --to-fid is required');
+    if (to && toFid) throw new ArgumentError('Cannot use both --to and --to-fid');
 
     const pwdId = extractPwdId(url);
     const saveAll = !fids;
@@ -89,7 +90,7 @@ cli({
     const taskId = await saveShare(page, pwdId, stoken, fidList, targetFid, saveAll);
 
     const result: SaveResult = {
-      success: true,
+      success: false,
       task_id: taskId,
       saved_to: to || toFid,
       target_fid: targetFid,
@@ -101,6 +102,10 @@ cli({
         result.save_count = task.save_as?.save_as_sum_num;
       });
       result.completed = completed;
+      result.success = completed;
+      if (!completed) throw new CommandExecutionError('quark: Save task timed out');
+    } else {
+      result.success = true;
     }
 
     return result;

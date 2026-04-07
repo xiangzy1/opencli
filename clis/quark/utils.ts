@@ -49,7 +49,14 @@ export async function fetchJson<T = unknown>(
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     ${body ? `body: ${JSON.stringify(body)},` : ''}
-  }).then(r => r.json())`;
+  }).then(async r => {
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('json')) {
+      const text = await r.text().catch(() => '');
+      throw Object.assign(new Error('Non-JSON response: ' + text.slice(0, 200)), { status: r.status });
+    }
+    return r.json();
+  })`;
 
   return page.evaluate(js) as unknown as ApiResponse<T>;
 }
