@@ -4,6 +4,7 @@ import { apiGet, httpsUrl, parseCountText, parseDurationText, payloadData, resol
 /** Map bilibili dynamic type to readable short name */
 const TYPE_MAP = {
     DYNAMIC_TYPE_AV: 'video',
+    DYNAMIC_TYPE_UGC_SEASON: 'video',
     DYNAMIC_TYPE_DRAW: 'draw',
     DYNAMIC_TYPE_ARTICLE: 'article',
     DYNAMIC_TYPE_FORWARD: 'forward',
@@ -21,6 +22,7 @@ function collectImages(major) {
         }
     }
     if (major.archive?.cover) urls.push(major.archive.cover);
+    if (major.ugc_season?.cover) urls.push(major.ugc_season.cover);
     if (major.article?.covers?.length) urls.push(...major.article.covers);
     if (major.opus?.pics?.length) {
         for (const pic of major.opus.pics) {
@@ -39,17 +41,18 @@ function parseItem(item) {
 
     let title = '';
     let url = item.id_str ? `https://t.bilibili.com/${item.id_str}` : '';
-    const itemType = TYPE_MAP[item.type] ?? item.type ?? '';
+    const archive = major.archive ?? major.ugc_season ?? null;
+    const itemType = TYPE_MAP[item.type] ?? (archive ? 'video' : (item.type ?? ''));
 
     // video
-    if (major.archive) {
-        title = major.archive.title ?? '';
-        url = major.archive.jump_url ? `https:${major.archive.jump_url}` : url;
+    if (archive) {
+        title = archive.title ?? '';
+        url = archive.jump_url ? httpsUrl(archive.jump_url) : url;
     }
     // article
     if (!title && major.article) {
         title = major.article.title ?? '';
-        url = major.article.jump_url ? `https:${major.article.jump_url}` : url;
+        url = major.article.jump_url ? httpsUrl(major.article.jump_url) : url;
     }
     // opus (new rich-text dynamics carry their own title)
     if (!title && major.opus?.title) {
@@ -83,10 +86,10 @@ function parseItem(item) {
     const likes = stat.like?.count ?? 0;
     const comments = stat.comment?.count ?? 0;
 
-    // 视频动态在 major.archive 里自带时长 / 播放 / 封面 / bvid，不用再去打 view 接口。
+    // 视频动态在 major.archive / major.ugc_season 里自带时长 / 播放 / 封面 / bvid，不用再去打 view 接口。
     // 非视频动态（专栏、图文、纯文字）这些字段就是空的，按 0 / '' 输出。
-    const archive = major.archive ?? {};
-    const durationText = archive.duration_text ?? '';
+    const archiveData = archive ?? {};
+    const durationText = archiveData.duration_text ?? '';
 
     // Full text body: opus-style dynamics keep it in summary, others in desc.
     let content = '';
@@ -121,14 +124,14 @@ function parseItem(item) {
         // 实测接口把 pub_ts 返成字符串（"1788582060"），统一成数字。
         time,
         pub_ts: Number(authorModule.pub_ts) || 0,
-        bvid: archive.bvid ?? '',
-        cover: httpsUrl(archive.cover),
+        bvid: archiveData.bvid ?? '',
+        cover: httpsUrl(archiveData.cover),
         duration: durationText,
         duration_sec: parseDurationText(durationText),
         // stat.play / stat.danmaku 是 "1.2万" 这种展示文本，解析成数字。
-        plays: parseCountText(archive.stat?.play),
-        danmaku: parseCountText(archive.stat?.danmaku),
-        desc: archive.desc ?? '',
+        plays: parseCountText(archiveData.stat?.play),
+        danmaku: parseCountText(archiveData.stat?.danmaku),
+        desc: archiveData.desc ?? '',
         only_fans: !!item.basic?.is_only_fans,
         likes,
         comments,

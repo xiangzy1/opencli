@@ -51,8 +51,16 @@ cli({
             // Channel avatar: lockup keeps it under decoratedAvatarViewModel.
             // Sources are smallest-first, so the last one is the largest.
             const lockupAvatars = meta?.image?.decoratedAvatarViewModel?.avatar
-              ?.avatarViewModel?.image?.sources || [];
-            const tns = lvm.contentImage?.thumbnailViewModel?.thumbnail?.thumbnails || lvm.contentImage?.thumbnailViewModel?.image?.thumbnails;
+              ?.avatarViewModel?.image?.sources
+              || meta?.image?.avatarViewModel?.image?.sources
+              || [];
+            let channel_avatar = lockupAvatars[lockupAvatars.length - 1]?.url || '';
+            if (channel_avatar.startsWith('//')) {
+              channel_avatar = 'https:' + channel_avatar;
+            }
+            const tns = lvm.contentImage?.thumbnailViewModel?.image?.sources
+              || lvm.contentImage?.thumbnailViewModel?.thumbnail?.thumbnails
+              || lvm.contentImage?.thumbnailViewModel?.image?.thumbnails;
             let thumbnail = (Array.isArray(tns) && tns.length > 0) ? (tns[tns.length - 1].url || '') : '';
             if (!thumbnail && lvm.contentId) {
               thumbnail = 'https://i.ytimg.com/vi/' + lvm.contentId + '/hqdefault.jpg';
@@ -63,7 +71,7 @@ cli({
             return {
               title: meta?.title?.content || '',
               channel: parts[0] || '',
-              channel_avatar: lockupAvatars[lockupAvatars.length - 1]?.url || '',
+              channel_avatar,
               views: parts[1] || '',
               duration,
               published: parts[2] || '',
@@ -79,6 +87,10 @@ cli({
             // (smallest-first, so the last thumbnail is the largest).
             const rendererAvatars = v.channelThumbnailSupportedRenderers
               ?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails || [];
+            let channel_avatar = rendererAvatars[rendererAvatars.length - 1]?.url || '';
+            if (channel_avatar.startsWith('//')) {
+              channel_avatar = 'https:' + channel_avatar;
+            }
             const tns = v.thumbnail?.thumbnails;
             let thumbnail = (Array.isArray(tns) && tns.length > 0) ? (tns[tns.length - 1].url || '') : '';
             if (!thumbnail) {
@@ -90,7 +102,7 @@ cli({
             return {
               title: v.title?.runs?.[0]?.text || '',
               channel: v.ownerText?.runs?.[0]?.text || v.shortBylineText?.runs?.[0]?.text || '',
-              channel_avatar: rendererAvatars[rendererAvatars.length - 1]?.url || '',
+              channel_avatar,
               views: v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '',
               duration: v.lengthText?.simpleText || '',
               published: v.publishedTimeText?.simpleText || '',
