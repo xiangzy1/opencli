@@ -12,6 +12,24 @@ const TYPE_MAP = {
     DYNAMIC_TYPE_PGC: 'bangumi',
 };
 
+/** Collect picture URLs from a dynamic's major module (draw images, video/article covers, opus pictures). */
+function collectImages(major) {
+    const urls = [];
+    if (major.draw?.items?.length) {
+        for (const img of major.draw.items) {
+            if (img.src) urls.push(img.src);
+        }
+    }
+    if (major.archive?.cover) urls.push(major.archive.cover);
+    if (major.article?.covers?.length) urls.push(...major.article.covers);
+    if (major.opus?.pics?.length) {
+        for (const pic of major.opus.pics) {
+            if (pic.url) urls.push(pic.url);
+        }
+    }
+    return urls;
+}
+
 function parseItem(item) {
     const modules = item.modules ?? {};
     const authorModule = modules.module_author ?? {};
@@ -33,14 +51,20 @@ function parseItem(item) {
         title = major.article.title ?? '';
         url = major.article.jump_url ? `https:${major.article.jump_url}` : url;
     }
+    // opus (new rich-text dynamics carry their own title)
+    if (!title && major.opus?.title) {
+        title = major.opus.title;
+    }
     // text content in desc
     if (!title && dynamicModule.desc?.text) {
-        title = stripHtml(dynamicModule.desc.text).slice(0, 60);
+        title = stripHtml(dynamicModule.desc.text).slice(0, 60).trim();
     }
-    // draw (图文) — use opus or draw items count as hint
+    if (!title && major.opus?.summary?.text) {
+        title = stripHtml(major.opus.summary.text).slice(0, 60).trim();
+    }
+    // draw — pure image post, consumers render the images themselves
     if (!title && major.draw) {
-        const imgCount = major.draw.items?.length ?? 0;
-        title = imgCount > 0 ? `[图片x${imgCount}]` : '[图文动态]';
+        title = '[图文]';
     }
     // VIP only content
     if (!title && item.basic?.is_only_fans) {
@@ -64,6 +88,28 @@ function parseItem(item) {
     const archive = major.archive ?? {};
     const durationText = archive.duration_text ?? '';
 
+    // Full text body: opus-style dynamics keep it in summary, others in desc.
+    let content = '';
+    if (major.opus?.summary?.text) content = stripHtml(major.opus.summary.text);
+    if (!content && dynamicModule.desc?.text) content = stripHtml(dynamicModule.desc.text);
+    // forward — append the original dynamic's text
+    if (item.orig) {
+        const origDynamic = item.orig.modules?.module_dynamic ?? {};
+        const origMajor = origDynamic.major ?? {};
+        const origText = origMajor.opus?.summary?.text || origDynamic.desc?.text || '';
+        if (origText) {
+            const origAuthor = item.orig.modules?.module_author?.name ?? '';
+            const quoted = stripHtml(origText);
+            content = content ? `${content}\n\n// @${origAuthor}: ${quoted}` : `// @${origAuthor}: ${quoted}`;
+        }
+    }
+
+    // Own pictures plus the forwarded original's, newline separated.
+    const images = [...collectImages(major)];
+    if (item.orig?.modules?.module_dynamic?.major) {
+        images.push(...collectImages(item.orig.modules.module_dynamic.major));
+    }
+
     return {
         title,
         url,
@@ -86,6 +132,8 @@ function parseItem(item) {
         only_fans: !!item.basic?.is_only_fans,
         likes,
         comments,
+        content,
+        images: images.join('\n'),
     };
 }
 
@@ -102,7 +150,7 @@ cli({
         { name: 'type', default: 'all', help: 'Filter: all, video, article, draw, text' },
         { name: 'pages', type: 'int', default: 1, help: 'Number of pages to fetch (each ~20 items)' },
     ],
-    columns: ['rank', 'time', 'pub_ts', 'author', 'mid', 'title', 'type', 'duration', 'duration_sec', 'plays', 'danmaku', 'likes', 'url', 'bvid', 'cover', 'face', 'desc', 'only_fans'],
+    columns: ['rank', 'time', 'pub_ts', 'author', 'mid', 'title', 'type', 'duration', 'duration_sec', 'plays', 'danmaku', 'likes', 'url', 'bvid', 'cover', 'face', 'desc', 'only_fans', 'images', 'content'],
     func: async (page, kwargs) => {
         const maxResults = Number(kwargs.limit) || 20;
         const maxPages = Number(kwargs.pages) || 1;
@@ -119,7 +167,7 @@ cli({
 
             let payload;
             if (isUserFeed) {
-                const params = { host_mid: uid, timezone_offset: -480 };
+                const params = { host_mid: uid, timezone_offset: -480, features: 'itemOpusStyle' };
                 if (offset) params.offset = offset;
                 payload = await apiGet(page, '/x/polymer/web-dynamic/v1/feed/space', { params });
             } else {
@@ -127,6 +175,8 @@ cli({
                     timezone_offset: -480,
                     type: filterType || 'all',
                     page: p + 1,
+                    // Without this, new draw dynamics hide their text and pics inside opus.
+                    features: 'itemOpusStyle',
                 };
                 if (offset) params.offset = offset;
                 payload = await apiGet(page, '/x/polymer/web-dynamic/v1/feed/all', { params });
@@ -159,6 +209,8 @@ cli({
                     face: parsed.face,
                     desc: parsed.desc,
                     only_fans: parsed.only_fans,
+                    images: parsed.images,
+                    content: parsed.content,
                 });
             }
 
@@ -184,7 +236,7 @@ cli({
     func: async (page, kwargs) => {
         const id = String(kwargs.id);
         const payload = await apiGet(page, '/x/polymer/web-dynamic/v1/detail', {
-            params: { id, timezone_offset: -480 },
+            params: { id, timezone_offset: -480, features: 'itemOpusStyle' },
         });
 
         const rows = [];

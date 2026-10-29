@@ -12,7 +12,7 @@
 | `opencli youtube comments` | Get video comments |
 | `opencli youtube channel` | Get channel info and videos |
 | `opencli youtube playlist` | Get playlist video list |
-| `opencli youtube feed` | Homepage recommended videos |
+| `opencli youtube feed` | Homepage recommendations / subscribed channels feed (`--type subscribed`) |
 | `opencli youtube history` | Watch history |
 | `opencli youtube watch-later` | Watch Later queue |
 | `opencli youtube subscriptions` | List subscribed channels |
@@ -27,6 +27,7 @@
 ```bash
 # Read commands
 opencli youtube feed --limit 10
+opencli youtube feed --type subscribed --limit 30   # videos from your subscribed channels
 opencli youtube history --limit 20
 opencli youtube watch-later --limit 50
 opencli youtube subscriptions --limit 30

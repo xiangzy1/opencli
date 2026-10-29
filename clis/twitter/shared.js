@@ -417,6 +417,45 @@ export function extractAuthorAvatar(user) {
 }
 
 /**
+ * Replace t.co short links in tweet text with their real destinations.
+ *
+ * X wraps every URL in tweet text with a `https://t.co/…` shortener; the
+ * GraphQL payload maps each short link back to its destination in
+ * `entities.urls[]` (`url` → `expanded_url`). Without this rewrite, timeline
+ * output leaks opaque t.co links that hide the destination (and break
+ * domain-based filtering / open-in-browser flows).
+ *
+ * Media t.co links (the trailing `https://t.co/…` standing in for embedded
+ * photos/videos) are stripped rather than expanded: their `expanded_url` is
+ * just the tweet's own `…/status/…/photo/1` page, and the real media URLs are
+ * already surfaced in `media_urls` by `extractMedia`.
+ *
+ * `entities` accepts either `legacy.entities` or a note tweet's
+ * `note_tweet_results.result.entity_set` — both share the `{ urls, media }`
+ * shape. Text without matching entities passes through unchanged.
+ */
+export function expandTweetUrls(text, entities) {
+    if (typeof text !== 'string' || text.length === 0) return text;
+    const urlEntities = Array.isArray(entities?.urls) ? entities.urls : [];
+    const mediaEntities = Array.isArray(entities?.media) ? entities.media : [];
+    if (urlEntities.length === 0 && mediaEntities.length === 0) return text;
+    let out = text;
+    for (const e of urlEntities) {
+        if (typeof e?.url === 'string' && e.url
+            && typeof e.expanded_url === 'string' && e.expanded_url
+            && out.includes(e.url)) {
+            out = out.split(e.url).join(e.expanded_url);
+        }
+    }
+    for (const m of mediaEntities) {
+        if (typeof m?.url === 'string' && m.url && out.includes(m.url)) {
+            out = out.split(m.url).join('');
+        }
+    }
+    return out.replace(/[ \t]+\n/g, '\n').trimEnd();
+}
+
+/**
  * Extract the link-preview card from a tweet's GraphQL response.
  *
  * Reads `tweet.card.legacy.{name, binding_values}` plus the expanded URL from
@@ -537,10 +576,11 @@ export function extractQuotedTweet(tweet) {
     const qDisplayName = typeof qLegacyDisplayName === 'string'
         ? qLegacyDisplayName
         : (typeof qCoreDisplayName === 'string' ? qCoreDisplayName : '');
-    const qNoteText = qTw.note_tweet?.note_tweet_results?.result?.text;
+    const qNoteResult = qTw.note_tweet?.note_tweet_results?.result;
+    const qNoteText = qNoteResult?.text;
     const qText = (typeof qNoteText === 'string' && qNoteText.length > 0)
-        ? qNoteText
-        : (typeof qLegacy.full_text === 'string' ? qLegacy.full_text : '');
+        ? expandTweetUrls(qNoteText, qNoteResult.entity_set)
+        : expandTweetUrls(typeof qLegacy.full_text === 'string' ? qLegacy.full_text : '', qLegacy.entities);
     const qMedia = extractMedia(qLegacy);
     const qCard = extractCard(qTw);
     if (!qText && !qMedia.has_media && !qCard) return null;
@@ -556,6 +596,9 @@ export function extractQuotedTweet(tweet) {
         media_posters: qMedia.media_posters,
         media_durations: qMedia.media_durations,
     };
+    const avatar = extractAuthorAvatar(qUser);
+    if (avatar) out.author_avatar = avatar;
+    if (qUser?.is_blue_verified || qUser?.legacy?.verified) out.author_verified = true;
     if (qCard) out.card = qCard;
     return out;
 }
@@ -609,6 +652,7 @@ export const __test__ = {
     extractAuthorAvatar,
     extractCard,
     extractQuotedTweet,
+    expandTweetUrls,
     parseTweetUrl,
     buildTwitterArticleScopeSource,
     looksLikePrivateTwitterTimeline,

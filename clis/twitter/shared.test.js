@@ -8,6 +8,7 @@ const {
     extractAuthorAvatar,
     extractCard,
     extractQuotedTweet,
+    expandTweetUrls,
     parseTweetUrl,
     buildTwitterArticleScopeSource,
     buildUserByScreenNameQueryUrl,
@@ -847,7 +848,7 @@ describe('twitter extractQuotedTweet', () => {
                     },
                     core: {
                         user_results: {
-                            result: { legacy: { screen_name: 'alice', name: 'Alice' } },
+                            result: { is_blue_verified: true, avatar: { image_url: 'https://pbs.twimg.com/profile_images/3/alice_normal.jpg' }, legacy: { screen_name: 'alice', name: 'Alice' } },
                         },
                     },
                 },
@@ -857,6 +858,8 @@ describe('twitter extractQuotedTweet', () => {
             id: '2040254679301718161',
             author: 'alice',
             name: 'Alice',
+            author_avatar: 'https://pbs.twimg.com/profile_images/3/alice_400x400.jpg',
+            author_verified: true,
             text: '罗某官二代背景考',
             created_at: 'Wed May 13 22:00:00 +0000 2026',
             url: 'https://x.com/alice/status/2040254679301718161',
@@ -996,6 +999,56 @@ describe('twitter extractQuotedTweet', () => {
         expect(q?.id).toBe('200');
         expect(q?.text).toBe('level-1 quote text');
         expect(q).not.toHaveProperty('quoted_tweet');
+    });
+});
+
+describe('twitter expandTweetUrls', () => {
+    it('replaces t.co links with expanded_url from entities.urls', () => {
+        const text = 'read this https://t.co/abc123 and https://t.co/def456';
+        const entities = {
+            urls: [
+                { url: 'https://t.co/abc123', expanded_url: 'https://example.com/post/1', display_url: 'example.com/post/1' },
+                { url: 'https://t.co/def456', expanded_url: 'https://example.org/page', display_url: 'example.org/page' },
+            ],
+        };
+        expect(expandTweetUrls(text, entities))
+            .toBe('read this https://example.com/post/1 and https://example.org/page');
+    });
+    it('strips media t.co links (real media already surfaced via media_urls)', () => {
+        const text = 'look at this photo https://t.co/media1';
+        const entities = { media: [{ type: 'photo', url: 'https://t.co/media1', expanded_url: 'https://x.com/bob/status/1/photo/1' }] };
+        expect(expandTweetUrls(text, entities)).toBe('look at this photo');
+    });
+    it('leaves text untouched when entities are missing or unmatched', () => {
+        const text = 'plain text https://t.co/unknown';
+        expect(expandTweetUrls(text, undefined)).toBe(text);
+        expect(expandTweetUrls(text, {})).toBe(text);
+        expect(expandTweetUrls(text, { urls: [{ url: 'https://t.co/other', expanded_url: 'https://example.com' }] })).toBe(text);
+    });
+    it('returns non-string input unchanged', () => {
+        expect(expandTweetUrls('', { urls: [] })).toBe('');
+        expect(expandTweetUrls(undefined)).toBeUndefined();
+    });
+    it('expands urls inside a note tweet entity_set shape', () => {
+        const text = 'docs at https://t.co/doc1 end';
+        const entitySet = { urls: [{ url: 'https://t.co/doc1', expanded_url: 'https://docs.example.com/guide' }] };
+        expect(expandTweetUrls(text, entitySet)).toBe('docs at https://docs.example.com/guide end');
+    });
+    it('expands t.co inside quoted tweet text', () => {
+        const tweet = {
+            legacy: { is_quote_status: true },
+            quoted_status_result: {
+                result: {
+                    rest_id: '200',
+                    legacy: {
+                        full_text: 'quoting https://t.co/abc123',
+                        entities: { urls: [{ url: 'https://t.co/abc123', expanded_url: 'https://example.com/x' }] },
+                    },
+                    core: { user_results: { result: { legacy: { screen_name: 'quoter' } } } },
+                },
+            },
+        };
+        expect(extractQuotedTweet(tweet)?.text).toBe('quoting https://example.com/x');
     });
 });
 

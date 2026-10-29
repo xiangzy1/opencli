@@ -132,12 +132,39 @@ describe('youtube feed', () => {
                 // thumbnails smallest-first so the largest wins.
                 channel_avatar: 'https://yt3.ggpht.com/large=s68',
                 url: 'https://www.youtube.com/watch?v=first-video',
+                thumbnail: 'https://i.ytimg.com/vi/first-video/hqdefault.jpg',
             }),
             expect.objectContaining({
                 rank: 2,
                 title: 'Second video',
                 video_id: 'second-video',
                 url: 'https://www.youtube.com/watch?v=second-video',
+                thumbnail: 'https://i.ytimg.com/vi/second-video/hqdefault.jpg',
+            }),
+        ]);
+    });
+
+    it('navigates to the subscriptions feed when type=subscribed', async () => {
+        const page = makePage({ initialData, continuationData });
+        const cmd = getRegistry().get('youtube/feed');
+
+        const rows = await cmd.func(page, { type: 'subscribed', limit: 2 });
+
+        expect(page.goto).toHaveBeenCalledWith('https://www.youtube.com/feed/subscriptions');
+        // Same richGrid extraction + continuation pagination reused for both feed types.
+        expect(page.__fetchMock).toHaveBeenCalledTimes(1);
+        expect(rows).toEqual([
+            expect.objectContaining({
+                rank: 1,
+                video_id: 'first-video',
+                url: 'https://www.youtube.com/watch?v=first-video',
+                thumbnail: 'https://i.ytimg.com/vi/first-video/hqdefault.jpg',
+            }),
+            expect.objectContaining({
+                rank: 2,
+                video_id: 'second-video',
+                url: 'https://www.youtube.com/watch?v=second-video',
+                thumbnail: 'https://i.ytimg.com/vi/second-video/hqdefault.jpg',
             }),
         ]);
     });

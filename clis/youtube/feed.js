@@ -9,16 +9,21 @@ cli({
     site: 'youtube',
     name: 'feed',
     access: 'read',
-    description: 'Get YouTube homepage recommended videos',
+    description: 'Get YouTube feed: homepage recommendations or videos from subscribed channels',
     domain: 'www.youtube.com',
     strategy: Strategy.COOKIE,
     args: [
         { name: 'limit', type: 'int', default: 20, help: 'Max videos to return (default 20, max 100)' },
+        { name: 'type', default: 'home', help: 'Feed type: home (homepage recommendations) or subscribed (videos from your subscribed channels)' },
     ],
-    columns: ['rank', 'title', 'channel', 'channel_avatar', 'video_id', 'views', 'duration', 'published', 'url'],
+    columns: ['rank', 'title', 'channel', 'channel_avatar', 'video_id', 'views', 'duration', 'published', 'url', 'thumbnail'],
     func: async (page, kwargs) => {
         const limit = Math.min(kwargs.limit || 20, 100);
-        await page.goto('https://www.youtube.com');
+        const feedType = kwargs.type || 'home';
+        const feedUrl = feedType === 'subscribed'
+            ? 'https://www.youtube.com/feed/subscriptions'
+            : 'https://www.youtube.com';
+        await page.goto(feedUrl);
         await page.wait(3);
         const data = await page.evaluate(`
       (async () => {
@@ -47,6 +52,14 @@ cli({
             // Sources are smallest-first, so the last one is the largest.
             const lockupAvatars = meta?.image?.decoratedAvatarViewModel?.avatar
               ?.avatarViewModel?.image?.sources || [];
+            const tns = lvm.contentImage?.thumbnailViewModel?.thumbnail?.thumbnails || lvm.contentImage?.thumbnailViewModel?.image?.thumbnails;
+            let thumbnail = (Array.isArray(tns) && tns.length > 0) ? (tns[tns.length - 1].url || '') : '';
+            if (!thumbnail && lvm.contentId) {
+              thumbnail = 'https://i.ytimg.com/vi/' + lvm.contentId + '/hqdefault.jpg';
+            }
+            if (thumbnail.startsWith('//')) {
+              thumbnail = 'https:' + thumbnail;
+            }
             return {
               title: meta?.title?.content || '',
               channel: parts[0] || '',
@@ -55,6 +68,7 @@ cli({
               duration,
               published: parts[2] || '',
               video_id: lvm.contentId,
+              thumbnail,
             };
           }
 
@@ -65,6 +79,14 @@ cli({
             // (smallest-first, so the last thumbnail is the largest).
             const rendererAvatars = v.channelThumbnailSupportedRenderers
               ?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails || [];
+            const tns = v.thumbnail?.thumbnails;
+            let thumbnail = (Array.isArray(tns) && tns.length > 0) ? (tns[tns.length - 1].url || '') : '';
+            if (!thumbnail) {
+              thumbnail = 'https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg';
+            }
+            if (thumbnail.startsWith('//')) {
+              thumbnail = 'https:' + thumbnail;
+            }
             return {
               title: v.title?.runs?.[0]?.text || '',
               channel: v.ownerText?.runs?.[0]?.text || v.shortBylineText?.runs?.[0]?.text || '',
@@ -73,6 +95,7 @@ cli({
               duration: v.lengthText?.simpleText || '',
               published: v.publishedTimeText?.simpleText || '',
               video_id: v.videoId,
+              thumbnail,
             };
           }
           return null;
@@ -124,7 +147,10 @@ cli({
             throw new CommandExecutionError(errMsg || 'Failed to fetch YouTube feed');
         }
         if (data.length === 0) {
-            throw new EmptyResultError('youtube feed');
+            const hint = feedType === 'subscribed'
+                ? 'No subscription videos found — make sure you are logged in and subscribe to channels'
+                : undefined;
+            throw new EmptyResultError('youtube feed', hint);
         }
         return data;
     },

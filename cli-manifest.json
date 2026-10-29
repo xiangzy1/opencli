@@ -2917,7 +2917,9 @@
       "cover",
       "face",
       "desc",
-      "only_fans"
+      "only_fans",
+      "images",
+      "content"
     ],
     "type": "js",
     "modulePath": "bilibili/feed.js",
@@ -17225,6 +17227,41 @@
     "modulePath": "instagram/explore.js",
     "sourceFile": "instagram/explore.js",
     "navigateBefore": "https://www.instagram.com"
+  },
+  {
+    "site": "instagram",
+    "name": "feed",
+    "description": "Get posts from your logged-in Instagram home feed",
+    "access": "read",
+    "domain": "www.instagram.com",
+    "strategy": "cookie",
+    "browser": true,
+    "args": [
+      {
+        "name": "limit",
+        "type": "int",
+        "default": 20,
+        "required": false,
+        "help": "Maximum posts to return (1-100)"
+      }
+    ],
+    "columns": [
+      "index",
+      "user",
+      "author_avatar",
+      "caption",
+      "likes",
+      "comments",
+      "type",
+      "date",
+      "url",
+      "images",
+      "media"
+    ],
+    "type": "js",
+    "modulePath": "instagram/feed.js",
+    "sourceFile": "instagram/feed.js",
+    "navigateBefore": false
   },
   {
     "site": "instagram",
@@ -37912,6 +37949,8 @@
     "columns": [
       "id",
       "author",
+      "author_avatar",
+      "name",
       "bio",
       "text",
       "likes",
@@ -37920,12 +37959,15 @@
       "views",
       "created_at",
       "url",
+      "is_retweet",
+      "retweeted_by",
       "has_media",
       "media_urls",
       "media_posters",
       "media_durations",
       "card",
       "quoted_tweet",
+      "article",
       "author_verified"
     ],
     "type": "js",
@@ -43939,7 +43981,7 @@
   {
     "site": "youtube",
     "name": "feed",
-    "description": "Get YouTube homepage recommended videos",
+    "description": "Get YouTube feed: homepage recommendations or videos from subscribed channels",
     "access": "read",
     "domain": "www.youtube.com",
     "strategy": "cookie",
@@ -43951,6 +43993,13 @@
         "default": 20,
         "required": false,
         "help": "Max videos to return (default 20, max 100)"
+      },
+      {
+        "name": "type",
+        "type": "str",
+        "default": "home",
+        "required": false,
+        "help": "Feed type: home (homepage recommendations) or subscribed (videos from your subscribed channels)"
       }
     ],
     "columns": [
@@ -43962,7 +44011,8 @@
       "views",
       "duration",
       "published",
-      "url"
+      "url",
+      "thumbnail"
     ],
     "type": "js",
     "modulePath": "youtube/feed.js",

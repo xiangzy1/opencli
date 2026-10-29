@@ -1,6 +1,6 @@
 import { AuthRequiredError, CommandExecutionError } from '@jackwener/opencli/errors';
 import { cli, Strategy } from '@jackwener/opencli/registry';
-import { resolveTwitterQueryId, extractMedia, extractCard, extractQuotedTweet, describeTwitterApiError } from './shared.js';
+import { resolveTwitterQueryId, extractMedia, extractCard, extractQuotedTweet, extractAuthorAvatar, expandTweetUrls, describeTwitterApiError } from './shared.js';
 import { TWITTER_BEARER_TOKEN, applyTopByEngagement } from './utils.js';
 // ── Twitter GraphQL constants ──────────────────────────────────────────
 const HOME_TIMELINE_QUERY_ID = 'c-CzHF1LboFilMpsx4ZCrQ';
@@ -67,22 +67,37 @@ function buildHomeTimelineUrl(queryId, endpoint, vars) {
 function extractTweet(result, seen) {
     if (!result)
         return null;
-    const tw = result.tweet || result;
+    const wrapper = result.tweet || result;
+    // A pure retweet is a thin wrapper tweet: its own legacy has no media and a
+    // truncated "RT @…" full_text — the original tweet (full text, media, counts,
+    // card) is nested under legacy.retweeted_status_result.result. Unwrap so
+    // consumers get the original content, and record the retweeter instead.
+    const rtResult = wrapper.legacy?.retweeted_status_result?.result || wrapper.retweeted_status_result?.result;
+    const rtTweet = rtResult ? rtResult.tweet || rtResult : null;
+    const isRetweet = Boolean(rtTweet?.rest_id);
+    const tw = isRetweet ? rtTweet : wrapper;
     const l = tw.legacy || {};
     if (!tw.rest_id || seen.has(tw.rest_id))
         return null;
     seen.add(tw.rest_id);
     const u = tw.core?.user_results?.result;
     const screenName = u?.legacy?.screen_name || u?.core?.screen_name || 'unknown';
+    const displayName = u?.legacy?.name || u?.core?.name || '';
     const bio = u?.legacy?.description || '';
-    const noteText = tw.note_tweet?.note_tweet_results?.result?.text;
+    const noteResult = tw.note_tweet?.note_tweet_results?.result;
+    const noteText = noteResult?.text;
     const views = tw.views?.count ? parseInt(tw.views.count, 10) : 0;
-    return {
+    const wu = wrapper.core?.user_results?.result;
+    const tweet = {
         id: tw.rest_id,
         author: screenName,
+        author_avatar: extractAuthorAvatar(u),
         author_verified: Boolean(u?.is_blue_verified || u?.legacy?.verified),
+        name: displayName || screenName,
         bio,
-        text: noteText || l.full_text || '',
+        text: noteText !== undefined && noteText !== ''
+            ? expandTweetUrls(noteText, noteResult.entity_set)
+            : expandTweetUrls(l.full_text || '', l.entities),
         likes: l.favorite_count || 0,
         retweets: l.retweet_count || 0,
         replies: l.reply_count || 0,
@@ -93,6 +108,32 @@ function extractTweet(result, seen) {
         card: extractCard(tw),
         quoted_tweet: extractQuotedTweet(tw),
     };
+    if (isRetweet) {
+        tweet.is_retweet = true;
+        // Omit the handle when the wrapper user is missing instead of writing a
+        // fake "unknown" author; consumers already treat the field as optional.
+        const retweetedBy = wu?.legacy?.screen_name || wu?.core?.screen_name;
+        if (retweetedBy) {
+            tweet.retweeted_by = retweetedBy;
+        }
+    }
+    // X Articles (long-form posts) surface as a bare t.co link in full_text with
+    // no card; the preview payload lives in tweet.article.article_results.result.
+    const articleResult = tw.article?.article_results?.result;
+    if (articleResult?.title) {
+        const entry = { title: articleResult.title };
+        const articleUrl = (l.entities?.urls || [])
+            .map((e) => e?.expanded_url)
+            .find((u) => typeof u === 'string' && u.includes('/i/article/'));
+        if (articleUrl)
+            entry.url = articleUrl;
+        const cover = articleResult.cover_media?.media_info?.original_img_url
+            || articleResult.cover_media?.media_info?.preview_image_url;
+        if (cover)
+            entry.cover_image = cover;
+        tweet.article = entry;
+    }
+    return tweet;
 }
 function parseHomeTimeline(data, seen) {
     const tweets = [];
@@ -157,7 +198,7 @@ cli({
         { name: 'limit', type: 'int', default: 20, help: 'Maximum number of tweets to return (default 20).' },
         { name: 'top-by-engagement', type: 'int', default: 0, help: 'When set to N>0, re-rank the timeline by weighted engagement (likes×1 + retweets×3 + replies×2 + bookmarks×5 + log10(views+1)×0.5) and return the top N. Default 0 keeps X\'s native ordering.' },
     ],
-    columns: ['id', 'author', 'bio', 'text', 'likes', 'retweets', 'replies', 'views', 'created_at', 'url', 'has_media', 'media_urls', 'media_posters', 'media_durations', 'card', 'quoted_tweet', 'author_verified'],
+    columns: ['id', 'author', 'author_avatar', 'name', 'bio', 'text', 'likes', 'retweets', 'replies', 'views', 'created_at', 'url', 'is_retweet', 'retweeted_by', 'has_media', 'media_urls', 'media_posters', 'media_durations', 'card', 'quoted_tweet', 'article', 'author_verified'],
     func: async (page, kwargs) => {
         const limit = kwargs.limit || 20;
         const timelineType = kwargs.type === 'following' ? 'following' : 'for-you';

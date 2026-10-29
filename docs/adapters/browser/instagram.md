@@ -9,6 +9,7 @@
 | `opencli instagram profile` | Get user profile info |
 | `opencli instagram search` | Search users |
 | `opencli instagram user` | Get recent posts from a user |
+| `opencli instagram feed` | Get posts from your logged-in homepage |
 | `opencli instagram explore` | Discover trending posts |
 | `opencli instagram followers` | List user's followers |
 | `opencli instagram following` | List user's following |
@@ -27,6 +28,10 @@ opencli instagram search nasa --limit 5
 
 # View a user's recent posts
 opencli instagram user nasa --limit 10
+
+# Read your home feed (no username needed)
+opencli instagram feed --limit 20
+opencli instagram feed --limit 10 -f json
 
 # Discover trending posts
 opencli instagram explore --limit 20
@@ -54,6 +59,14 @@ opencli instagram profile nasa -f json
 ### Profile photos
 
 `instagram profile` and `instagram search` include an `avatar_url` column with the account's profile photo (`profile` prefers the HD version). It is empty when Instagram sends none. These are signed `cdninstagram.com` / `fbcdn.net` URLs: they expire, and Instagram's CDN often refuses to load them on other sites. Download the image when you need it; don't store the URL for later hotlinking.
+
+### Notes on the home feed
+
+- `feed` reads the logged-in homepage in display order, including recommendations. Posts with explicit ad metadata or a Sponsored/promotion header label are filtered before counting toward `--limit`. Ordinary brand posts and advertising words in captions are retained. It is not a following-only or chronological feed.
+- `--limit` defaults to 20 and accepts 1–100. The command scrolls a bounded number of times, collects posts across viewports, and deduplicates by post URL. It may return fewer posts if loading stops or the feed is exhausted.
+- Rows include `index`, `user`, `caption`, `likes`, `comments`, `type`, `date`, `url`, `images`, and `media`. `media` contains ordered `{type: 'image', url}` or `{type: 'video', url, poster}` entries, including playable video URLs. `images` remains an ordered array of photo/cover URLs. Carousels use the full media metadata list in original publication order and select the largest available rendition per slide. If complete metadata cannot be read, the command reports an error instead of silently returning a partial carousel.
+- Captions contain the visible preview; counts retain the displayed text (including rounded/localized values). Hidden counts and unavailable fields are empty, rather than zero. `date` uses the page's datetime attribute where available.
+- The command reads rendered posts without calling the account-info endpoint. Login challenges and changes to Instagram's page markup can still prevent extraction.
 
 ### Notes on collections
 
