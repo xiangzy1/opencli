@@ -10,7 +10,8 @@ const TYPE_MAP = {
     DYNAMIC_TYPE_FORWARD: 'forward',
     DYNAMIC_TYPE_WORD: 'text',
     DYNAMIC_TYPE_LIVE_RCMD: 'live',
-    DYNAMIC_TYPE_PGC: 'bangumi',
+    DYNAMIC_TYPE_PGC: 'video',
+    DYNAMIC_TYPE_PGC_UNION: 'video',
 };
 
 /** Collect picture URLs from a dynamic's major module (draw images, video/article covers, opus pictures). */
@@ -23,6 +24,7 @@ function collectImages(major) {
     }
     if (major.archive?.cover) urls.push(major.archive.cover);
     if (major.ugc_season?.cover) urls.push(major.ugc_season.cover);
+    if (major.pgc?.cover) urls.push(major.pgc.cover);
     if (major.article?.covers?.length) urls.push(...major.article.covers);
     if (major.opus?.pics?.length) {
         for (const pic of major.opus.pics) {
@@ -32,7 +34,7 @@ function collectImages(major) {
     return urls;
 }
 
-function parseItem(item) {
+export function parseItem(item) {
     const modules = item.modules ?? {};
     const authorModule = modules.module_author ?? {};
     const dynamicModule = modules.module_dynamic ?? {};
@@ -41,7 +43,7 @@ function parseItem(item) {
 
     let title = '';
     let url = item.id_str ? `https://t.bilibili.com/${item.id_str}` : '';
-    const archive = major.archive ?? major.ugc_season ?? null;
+    const archive = major.archive ?? major.ugc_season ?? major.pgc ?? null;
     const itemType = TYPE_MAP[item.type] ?? (archive ? 'video' : (item.type ?? ''));
 
     // video
@@ -86,7 +88,7 @@ function parseItem(item) {
     const likes = stat.like?.count ?? 0;
     const comments = stat.comment?.count ?? 0;
 
-    // 视频动态在 major.archive / major.ugc_season 里自带时长 / 播放 / 封面 / bvid，不用再去打 view 接口。
+    // 视频动态在 major.archive / major.ugc_season / major.pgc 里自带封面等信息。
     // 非视频动态（专栏、图文、纯文字）这些字段就是空的，按 0 / '' 输出。
     const archiveData = archive ?? {};
     const durationText = archiveData.duration_text ?? '';
