@@ -68,6 +68,7 @@ opencli youtube comment "https://www.youtube.com/watch?v=xxx" "Great video!" --e
 ## Notes
 
 - `feed` and `search` emit `channel_avatar` (largest thumbnail the list page carries) and `video_id`; both are empty for result types that have no channel avatar or video, such as playlist lockups
+- `feed` reads the channel / views / published line by content rather than by position, so collabs (an extra "和…" / "and N more" part goes to `collaborators`), upcoming premieres (`published` = "预定发布时间…" / "Scheduled for…") and live rows (`published` = "Live" / "Streaming live") keep their fields straight
 - `video` falls back to the channel's own browse response for `channelAvatar` / `subscribers` when the watch page ships no `videoOwnerRenderer` — one extra InnerTube call, only on the pages that need it
 
 `channel` accepts a channel ID (`UC…`) or a handle with or without `@` (for example, `opencli youtube channel halfbraindev`). Handles are resolved before channel data is requested; unresolved handles return an error.

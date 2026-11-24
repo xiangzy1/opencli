@@ -44099,6 +44099,7 @@
       "rank",
       "title",
       "channel",
+      "collaborators",
       "channel_avatar",
       "video_id",
       "views",

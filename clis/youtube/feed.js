@@ -16,7 +16,7 @@ cli({
         { name: 'limit', type: 'int', default: 20, help: 'Max videos to return (default 20, max 100)' },
         { name: 'type', default: 'home', help: 'Feed type: home (homepage recommendations) or subscribed (videos from your subscribed channels)' },
     ],
-    columns: ['rank', 'title', 'channel', 'channel_avatar', 'video_id', 'views', 'duration', 'published', 'url', 'thumbnail'],
+    columns: ['rank', 'title', 'channel', 'collaborators', 'channel_avatar', 'video_id', 'views', 'duration', 'published', 'url', 'thumbnail'],
     func: async (page, kwargs) => {
         const limit = Math.min(kwargs.limit || 20, 100);
         const feedType = kwargs.type || 'home';
@@ -35,6 +35,27 @@ cli({
         const apiKey = cfg.INNERTUBE_API_KEY;
         const context = cfg.INNERTUBE_CONTEXT;
 
+        // YouTube 订阅页里每张卡片的元信息行，顺序不固定：
+        //   [频道名, (和xxx / 以及另外 N 位联合创作者)?, 观看数?, (xx前 / 预定发布时间…)?]
+        // 合作视频会多一段合作者，直播/预告没有观看数但有「预定发布时间」，
+        // 所以不能按位置取，要按内容判断。
+        const RELATIVE_TIME_RE = /(?:\\bago|前|[后後]|just\\s*now|刚刚|剛剛)$/i;
+        const SCHEDULED_RE = /^(?:预定发布时间|scheduled\\s*(?:for|at)|premieres?\\s*(?:at|on))/i;
+        const LIVE_RE = /^(?:live|streaming\\b.*|streamed\\b.*|正在直播|首播\\s*(?:中|ing)?|直播\\s*(?:中|ing)?)\\s*$/i;
+        const VIEW_COUNT_RE = /^(?:[\\d.,]+\\s*(?:[km]\\b|万|亿|千)?(?:\\s*(?:次观看|回視聴|views|visualiza\\w*))?|no\\s+views)\\s*$/i;
+        function pickMetadata(parts) {
+          const rest = parts.filter(Boolean);
+          const take = (re) => {
+            const i = rest.findIndex(p => re.test(p));
+            return i === -1 ? '' : rest.splice(i, 1)[0];
+          };
+          const published = take(RELATIVE_TIME_RE) || take(SCHEDULED_RE) || take(LIVE_RE);
+          const views = take(VIEW_COUNT_RE);
+          const channel = rest.shift() || '';
+          const collaborators = rest.join(' ').trim();
+          return { channel, collaborators, views, published };
+        }
+
         function extractFromItem(item) {
           // Modern lockupViewModel format
           const lvm = item.richItemRenderer?.content?.lockupViewModel;
@@ -42,6 +63,7 @@ cli({
             const meta = lvm.metadata?.lockupMetadataViewModel;
             const rows = meta?.metadata?.contentMetadataViewModel?.metadataRows || [];
             const parts = rows.flatMap(r => (r.metadataParts || []).map(p => p.text?.content || '').filter(Boolean));
+            const picked = pickMetadata(parts);
             let duration = '';
             for (const ov of (lvm.contentImage?.thumbnailViewModel?.overlays || [])) {
               for (const b of (ov.thumbnailBottomOverlayViewModel?.badges || [])) {
@@ -70,11 +92,12 @@ cli({
             }
             return {
               title: meta?.title?.content || '',
-              channel: parts[0] || '',
+              channel: picked.channel,
+              collaborators: picked.collaborators,
               channel_avatar,
-              views: parts[1] || '',
+              views: picked.views,
               duration,
-              published: parts[2] || '',
+              published: picked.published,
               video_id: lvm.contentId,
               thumbnail,
             };
@@ -102,6 +125,7 @@ cli({
             return {
               title: v.title?.runs?.[0]?.text || '',
               channel: v.ownerText?.runs?.[0]?.text || v.shortBylineText?.runs?.[0]?.text || '',
+              collaborators: '',
               channel_avatar,
               views: v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '',
               duration: v.lengthText?.simpleText || '',

@@ -232,4 +232,58 @@ describe('youtube feed', () => {
             video_id: 'lockup-video',
         });
     });
+
+    // 订阅页卡片的元信息行顺序不固定：合作视频多一段合作者，直播/预告没有观看数。
+    // 以前按固定下标取会把观看数当成发布时间，这里锁定按内容识别的行为。
+    it('picks channel / collaborators / views / published by content, not by position', async () => {
+        const lockup = (contentId, title, parts) => ({
+            richItemRenderer: {
+                content: {
+                    lockupViewModel: {
+                        contentId,
+                        contentType: 'LOCKUP_CONTENT_TYPE_VIDEO',
+                        metadata: {
+                            lockupMetadataViewModel: {
+                                title: { content: title },
+                                metadata: {
+                                    contentMetadataViewModel: {
+                                        metadataRows: [{ metadataParts: parts.map((content) => ({ text: { content } })) }],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        const initialData = {
+            contents: {
+                twoColumnBrowseResultsRenderer: {
+                    tabs: [{
+                        tabRenderer: {
+                            content: {
+                                richGridRenderer: {
+                                    contents: [
+                                        lockup('collab', 'Collab video', ['Bambu Lab', '和Scott Yu-Jan', '4378', '2小时前']),
+                                        lockup('upcoming', 'Upcoming video', ['Visual Studio Code', '预定发布时间：2026/12/11 00:00']),
+                                        lockup('live', 'Live video', ['Some channel', '12 views', 'Streaming live']),
+                                        lockup('plain', 'Plain video', ['Some channel', '1.2K views', '14 hours ago']),
+                                    ],
+                                },
+                            },
+                        },
+                    }],
+                },
+            },
+        };
+        const page = makePage({ initialData });
+        const rows = await getRegistry().get('youtube/feed').func(page, { limit: 4 });
+
+        expect(rows.map(({ video_id, channel, collaborators, views, published }) => ({ video_id, channel, collaborators, views, published }))).toEqual([
+            { video_id: 'collab', channel: 'Bambu Lab', collaborators: '和Scott Yu-Jan', views: '4378', published: '2小时前' },
+            { video_id: 'upcoming', channel: 'Visual Studio Code', collaborators: '', views: '', published: '预定发布时间：2026/12/11 00:00' },
+            { video_id: 'live', channel: 'Some channel', collaborators: '', views: '12 views', published: 'Streaming live' },
+            { video_id: 'plain', channel: 'Some channel', collaborators: '', views: '1.2K views', published: '14 hours ago' },
+        ]);
+    });
 });
