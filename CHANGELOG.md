@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.0.3](https://github.com/jackwener/opencli/compare/v2.0.2...v2.0.3) (2026-11-08)
+
+Includes Chrome extension **1.0.27**. Update the extension for loopback connectivity, native keyboard input, and browser-window recovery fixes.
+
+### Features
+
+- Add Pinduoduo search and Twitter list-members commands.
+- Include replies and retweets in Twitter search results, and suggest site login commands on authentication failures.
+
+### Fixes
+
+- Agree on a reachable loopback address across the daemon, CLI, and extension; avoid replacing a newer daemon with an older CLI.
+- Aim browser clicks at the resolved element, detect sibling occlusion, send complete native keyboard events, and recover owned idle windows after restart.
+- Fall back to DataTransfer uploads when the file chooser does not open; safely replace stale plugin host junctions on Windows.
+- Preserve JavaScript pipes and quoted expressions in pipelines, append query parameters before URL fragments, and escape CSV/Markdown headers.
+- Isolate concurrent download temporary files, preserve article code blocks, and honor yt-dlp failure exit status.
+- Improve LinkedIn experience, activity, and job parsing; wait for Weixin verification and article rendering; fix Ctrip train navigation.
+- Improve Twitter identity, Facebook search, Reddit blocked-page handling, JD login detection, Gemini conversation extraction, Grok session/text extraction, and YouTube login detection.
+- Update Xiaohongshu search and creator-note extraction, and report unloaded interaction counts as errors rather than zero.
+- Update undici to 7.30.1 for published security advisories.
+
+## [2.0.2](https://github.com/jackwener/opencli/compare/v2.0.1...v2.0.2) (2026-10-20)
+
+### Fixes
+
+- Publish through npm Trusted Publishing (GitHub Actions OIDC), with provenance required by default (#2622).
+- Verify the published tarball, provenance source identity, signatures, and a clean mise installation before announcing a release. Release retries also verify any existing version instead of silently accepting it.
+- Keep Chrome extension **1.0.26** unchanged; this release repairs npm publishing evidence. Earlier package versions are immutable and do not gain provenance retroactively.
+
 ## [2.0.1](https://github.com/jackwener/opencli/compare/v2.0.0...v2.0.1) (2026-10-20)
 
 Includes Chrome extension **1.0.26**. Update the extension to receive the navigation fix.
